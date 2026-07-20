@@ -1,0 +1,11 @@
+/bazel-*
+/.bazel_output
+# Regenerated on every build; not committed to avoid drift with the
+# monorepo-driven export flow.
+MODULE.bazel.lock
+
+# Runtime state of the examples/ compose setup. The data directory itself is
+# committed (via .gitkeep). If it doesn't exist when compose starts, the
+# docker daemon tries to create it as root.
+examples/data/*
+!examples/data/.gitkeep

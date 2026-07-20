@@ -1,0 +1,6 @@
+# Required for rules_proto_grpc_go
+build --noincompatible_disallow_ctx_resolve_tools
+
+# Cross-compile Go binaries that will be baked into Docker images.
+build:linux_docker --platforms=@rules_go//go/toolchain:linux_amd64
+run:linux_docker --platforms=@rules_go//go/toolchain:linux_amd64

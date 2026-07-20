@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Ubuntu runners ship bazelisk as `bazel`; it reads .bazelversion.
+      - name: Test
+        run: bazel test //...
+      - name: Validate self-hosting example
+        run: docker compose -f examples/docker-compose.yml config -q
+        env:
+          PUBLIC_HOST: example.com

@@ -1,0 +1,19 @@
+# SPDX-FileCopyrightText: 2026 Scheidegger Technology GmbH
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# TLS front for the standalone hub: automatic Let's Encrypt certificates on
+# 443, with both hub protocols routed by path:
+#   - nodes:        https://$PUBLIC_HOST      (gRPC)
+#   - wcadm et al.: https://$PUBLIC_HOST      (REST)
+
+{$PUBLIC_HOST} {
+	# Node-facing gRPC. The backend speaks plaintext HTTP/2 (h2c).
+	# connect.hub.Hub is the service's pre-rename name; the hub answers to
+	# both until 1.0.
+	@grpc path /wispers.connect.hub.Hub/* /connect.hub.Hub/*
+	reverse_proxy @grpc h2c://hub:50051
+
+	# Admin REST API and the attestation JWKS.
+	reverse_proxy /api/v1/* hub:2357
+	reverse_proxy /.well-known/* hub:2357
+}

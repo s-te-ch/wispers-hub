@@ -1,0 +1,160 @@
+// -*- protobuf -*-
+// SPDX-FileCopyrightText: 2026 Scheidegger Technology GmbH
+// SPDX-License-Identifier: AGPL-3.0-only
+
+// Internal gRPC interface of the Wispers Connect backend.
+// Used by the hub to validate registration tokens and create nodes.
+
+syntax = "proto3";
+package wispers.connect.be;
+option go_package = "connect/proto/bepb";
+
+service Backend {
+  // Validates a registration token and creates a node.
+  // Returns the created node's credentials.
+  rpc CompleteNodeRegistration(CompleteNodeRegistrationRequest) returns (CompleteNodeRegistrationResponse) {}
+
+  // Validates node credentials. Used by the hub to authenticate incoming requests.
+  rpc AuthenticateNode(AuthenticateNodeRequest) returns (AuthenticateNodeResponse) {}
+
+  // Lists all nodes in a connectivity group.
+  rpc ListNodes(ListNodesRequest) returns (ListNodesResponse) {}
+
+  // Returns the roster for a connectivity group.
+  rpc GetRoster(GetRosterRequest) returns (GetRosterResponse) {}
+
+  // Returns the metadata for a connectivity group.
+  rpc GetGroupMetadata(GetGroupMetadataRequest) returns (GetGroupMetadataResponse) {}
+
+  // Updates the roster for a connectivity group.
+  // Validates signatures and uses optimistic locking.
+  rpc UpdateRoster(UpdateRosterRequest) returns (UpdateRosterResponse) {}
+
+  // Updates a node's last_seen_at timestamp. Called when a node connects.
+  rpc UpdateNodeLastSeen(UpdateNodeLastSeenRequest) returns (UpdateNodeLastSeenResponse) {}
+
+  // Soft-deletes a node from the connectivity group.
+  rpc DeregisterNode(DeregisterNodeRequest) returns (DeregisterNodeResponse) {}
+
+  // Logs a node activity event (connect, disconnect, register, etc.).
+  rpc LogActivity(LogActivityRequest) returns (LogActivityResponse) {}
+}
+
+message CompleteNodeRegistrationRequest {
+  string token = 1;
+}
+
+message CompleteNodeRegistrationResponse {
+  string connectivity_group_id = 1;
+  int32 node_number = 2;
+  string auth_token = 3;  // The node's authentication token for future requests
+  string attestation_jwt = 4;  // Signed JWT attesting to (cg_id, node_number)
+}
+
+message AuthenticateNodeRequest {
+  string connectivity_group_id = 1;
+  int32 node_number = 2;
+  string auth_token = 3;
+}
+
+message AuthenticateNodeResponse {
+  // Empty on success; RPC returns error status on failure.
+}
+
+message ListNodesRequest {
+  string connectivity_group_id = 1;
+}
+
+message ListNodesResponse {
+  repeated Node nodes = 1;
+}
+
+message Node {
+  int32 node_number = 1;
+  string name = 2;
+  int64 last_seen_at_millis = 3;
+  string metadata = 4;
+}
+
+message GetRosterRequest {
+  string connectivity_group_id = 1;
+}
+
+message GetRosterResponse {
+  bytes roster = 1;  // Serialized roster proto, empty if no roster exists
+  int64 version = 2;
+}
+
+message GetGroupMetadataRequest {
+  string connectivity_group_id = 1;
+}
+
+message GetGroupMetadataResponse {
+  string domain_id = 1;
+  int64 created_at_millis = 2;
+  string name = 3;
+  string association_key = 4;
+}
+
+message UpdateRosterRequest {
+  string connectivity_group_id = 1;
+  bytes roster = 2;           // Serialized roster proto
+  int64 new_version = 3;
+  int64 expected_version = 4; // For optimistic locking
+}
+
+message UpdateRosterResponse {
+  // Empty on success; RPC returns error status on failure.
+}
+
+message UpdateNodeLastSeenRequest {
+  string connectivity_group_id = 1;
+  int32 node_number = 2;
+}
+
+message UpdateNodeLastSeenResponse {
+  // Empty on success; RPC returns error status on failure.
+}
+
+message DeregisterNodeRequest {
+  string connectivity_group_id = 1;
+  int32 node_number = 2;
+}
+
+message DeregisterNodeResponse {
+  // Empty on success; RPC returns error status on failure.
+}
+
+message LogActivityRequest {
+  string connectivity_group_id = 1;
+  int32 node_number = 2;
+  string event_type = 3;       // "connect", "disconnect", "register", etc.
+  bool success = 4;
+  EventDetails details = 6;
+}
+
+message LogActivityResponse {}
+
+message EventDetails {
+  string error_message = 1;    // Only set on failure
+  oneof kind {
+    ConnectEvent connect = 10;
+    DisconnectEvent disconnect = 11;
+    RegisterEvent register = 12;
+    DeregisterEvent deregister = 13;
+    ActivateEvent activate = 14;
+    ConnectionEvent connection = 15;
+    RosterUpdateEvent roster_update = 16;
+  }
+}
+
+message ConnectEvent {}
+message DisconnectEvent {}
+message RegisterEvent {}
+message DeregisterEvent {}
+message ActivateEvent { int32 endorser_node_number = 1; }
+message ConnectionEvent {
+  string transport = 1;          // "udp" or "quic"
+  int32 peer_node_number = 2;
+}
+message RosterUpdateEvent { string kind = 1; }     // "activation" or "revocation"

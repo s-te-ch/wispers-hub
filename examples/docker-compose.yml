@@ -1,0 +1,52 @@
+# SPDX-FileCopyrightText: 2026 Scheidegger Technology GmbH
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# Self-hosted Wispers Connect hub
+#
+# Usage:
+#   1. Point your public DNS name at this machine (certificates need it).
+#   2. export PUBLIC_HOST=<that DNS name>
+#   3. docker compose up -d
+#   4. cat data/initial-api-key  # your admin API key
+#
+# Then manage the hub with wcadm (from the wispers-client repo) or curl
+# against https://$PUBLIC_HOST/api/v1, authenticated with that key.
+
+services:
+  hub:
+    image: ghcr.io/s-te-ch/wispers-hub:latest
+    command:
+      - --stun-server=${PUBLIC_HOST:?set PUBLIC_HOST to your public DNS name}:3478
+    environment:
+      STATE_DIRECTORY: /var/lib/wispers-hub
+    volumes:
+      - ./data:/var/lib/wispers-hub
+    restart: unless-stopped
+
+  stun:
+    image: coturn/coturn:4
+    command:
+      - --no-stdout-log
+      - --external-ip=$$(detect-external-ip)
+    volumes:
+      - ./turnserver.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      # STUN ports.
+      - "3478:3478/udp"
+      - "3478:3478/tcp"
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2
+    environment:
+      PUBLIC_HOST: ${PUBLIC_HOST:?set PUBLIC_HOST to your public DNS name}
+    ports:
+      - "80:80" # ACME http-01 challenge + redirect to https
+      - "443:443" # gRPC (nodes) + admin REST API, routed by path
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
