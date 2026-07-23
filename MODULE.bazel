@@ -7,7 +7,7 @@
 
 module(
     name = "wispers-hub",
-    version = "0.2.0",
+    version = "0.3.0",
 )
 
 ## Go SDK and module management ################################################
