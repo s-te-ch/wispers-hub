@@ -103,6 +103,10 @@ type GroupReset struct {
 	Reset bool `json:"reset"`
 }
 
+type NodeDeleted struct {
+	Deleted bool `json:"deleted"`
+}
+
 type Stats struct {
 	ConnectivityGroups GroupsStats `json:"connectivityGroups"`
 }

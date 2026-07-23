@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -20,8 +21,11 @@ import (
 	"connect/hub/standalone"
 	"connect/proto/bepb"
 
+	"connect/client/proto/rosterpb"
+
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+	"google.golang.org/protobuf/proto"
 )
 
 // doJSON performs a request against the REST handler and decodes the JSON
@@ -434,4 +438,131 @@ func TestRegistrationTokenListing(t *testing.T) {
 		t.Errorf("pending token: usedAt should be present and null, got %v (present=%v)",
 			usedAt, present)
 	}
+}
+
+// Node deletion (DELETE /connectivity-groups/:id/nodes/:nodeNumber) frees a
+// node's registration, but only once the group's roster marks the node
+// revoked — the precondition that keeps registrations out of the
+// deregistered-but-still-activated state. Exercises the guard from both
+// sides plus the 404 paths.
+func TestStandaloneNodeDelete(t *testing.T) {
+	ctx := context.Background()
+
+	st, err := standalone.Open(filepath.Join(t.TempDir(), "hub.db"))
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer st.Close()
+	adminKey := st.BootstrapAPIKey
+
+	rest := standalone.NewRESTHandler(st, func(string) []int32 { return nil })
+	client, stop, err := standalone.Serve(standalone.NewBackend(st))
+	if err != nil {
+		t.Fatalf("Serve: %v", err)
+	}
+	defer stop()
+
+	var group struct {
+		ID string `json:"id"`
+	}
+	if code := doJSON(t, rest, "POST", "/api/v1/connectivity-groups",
+		adminKey, map[string]any{"name": "delete-test"}, &group); code != http.StatusOK {
+		t.Fatalf("create group: got %d, want 200", code)
+	}
+	var tokenResp struct {
+		Token string `json:"token"`
+	}
+	if code := doJSON(
+		t, rest, "POST", "/api/v1/connectivity-groups/"+group.ID+"/registration-tokens",
+		adminKey, map[string]any{"nodeName": "guest"}, &tokenResp,
+	); code != http.StatusOK {
+		t.Fatalf("create token: got %d, want 200", code)
+	}
+	reg, err := client.CompleteNodeRegistration(ctx, &bepb.CompleteNodeRegistrationRequest{
+		Token: tokenResp.Token,
+	})
+	if err != nil {
+		t.Fatalf("CompleteNodeRegistration: %v", err)
+	}
+	node := reg.GetNodeNumber()
+	nodePath := "/api/v1/connectivity-groups/" + group.ID + "/nodes/" +
+		strconv.Itoa(int(node))
+
+	// No roster yet: the precondition cannot hold.
+	if code := doJSON(t, rest, "DELETE", nodePath, adminKey, nil, nil); code != http.StatusConflict {
+		t.Errorf("delete without roster: got %d, want 409", code)
+	}
+
+	// Garbage roster: untrusted input must fail closed.
+	setTestRoster(t, ctx, client, group.ID, 1, []byte("not-a-roster"))
+	if code := doJSON(t, rest, "DELETE", nodePath, adminKey, nil, nil); code != http.StatusConflict {
+		t.Errorf("delete with garbage roster: got %d, want 409", code)
+	}
+
+	// Roster lists the node, but not as revoked.
+	setTestRoster(t, ctx, client, group.ID, 2, marshalRoster(t, &rosterpb.Roster{
+		Version: 2,
+		Nodes:   []*rosterpb.Node{{NodeNumber: node}},
+	}))
+	if code := doJSON(t, rest, "DELETE", nodePath, adminKey, nil, nil); code != http.StatusConflict {
+		t.Errorf("delete unrevoked node: got %d, want 409", code)
+	}
+
+	// Revoked in the roster: the delete goes through.
+	setTestRoster(t, ctx, client, group.ID, 3, marshalRoster(t, &rosterpb.Roster{
+		Version: 3,
+		Nodes:   []*rosterpb.Node{{NodeNumber: node, Revoked: true}},
+	}))
+	var deleted struct {
+		Deleted bool `json:"deleted"`
+	}
+	if code := doJSON(t, rest, "DELETE", nodePath, adminKey, nil, &deleted); code != http.StatusOK {
+		t.Fatalf("delete revoked node: got %d, want 200", code)
+	}
+	if !deleted.Deleted {
+		t.Error("delete revoked node: expected deleted=true")
+	}
+	nodes, err := client.ListNodes(ctx, &bepb.ListNodesRequest{ConnectivityGroupId: group.ID})
+	if err != nil {
+		t.Fatalf("ListNodes after delete: %v", err)
+	}
+	if len(nodes.GetNodes()) != 0 {
+		t.Fatalf("ListNodes after delete: got %d nodes, want 0", len(nodes.GetNodes()))
+	}
+
+	// The registration is gone: retries and unknown nodes 404.
+	if code := doJSON(t, rest, "DELETE", nodePath, adminKey, nil, nil); code != http.StatusNotFound {
+		t.Errorf("second delete: got %d, want 404", code)
+	}
+	if code := doJSON(t, rest, "DELETE",
+		"/api/v1/connectivity-groups/"+group.ID+"/nodes/999",
+		adminKey, nil, nil); code != http.StatusNotFound {
+		t.Errorf("delete unknown node: got %d, want 404", code)
+	}
+}
+
+// setTestRoster uploads a roster blob via the backend interface, as the
+// sharer node would.
+func setTestRoster(
+	t *testing.T, ctx context.Context, client bepb.BackendClient,
+	groupID string, version int64, blob []byte,
+) {
+	t.Helper()
+	if _, err := client.UpdateRoster(ctx, &bepb.UpdateRosterRequest{
+		ConnectivityGroupId: groupID,
+		Roster:              blob,
+		NewVersion:          version,
+		ExpectedVersion:     version - 1,
+	}); err != nil {
+		t.Fatalf("UpdateRoster v%d: %v", version, err)
+	}
+}
+
+func marshalRoster(t *testing.T, roster *rosterpb.Roster) []byte {
+	t.Helper()
+	blob, err := proto.Marshal(roster)
+	if err != nil {
+		t.Fatalf("marshal roster: %v", err)
+	}
+	return blob
 }

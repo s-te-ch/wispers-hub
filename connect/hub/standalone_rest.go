@@ -19,8 +19,11 @@ import (
 	"connect/shared/apikeys"
 	"connect/shared/integratorapi"
 
+	"connect/client/proto/rosterpb"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"google.golang.org/protobuf/proto"
 	sqlite "modernc.org/sqlite"
 )
 
@@ -52,6 +55,7 @@ func NewRESTHandler(st *State, online OnlineChecker) http.Handler {
 	g.POST("/connectivity-groups/:id/registration-tokens", r.postRegistrationToken)
 	g.GET("/connectivity-groups/:id/registration-tokens", r.getRegistrationTokens)
 	g.PATCH("/connectivity-groups/:id/nodes/:nodeNumber", r.patchNode)
+	g.DELETE("/connectivity-groups/:id/nodes/:nodeNumber", r.deleteNode)
 	return engine
 }
 
@@ -514,6 +518,98 @@ func (r *restAPI) patchNode(c *gin.Context) {
 	}
 
 	c.JSON(http.StatusOK, gin.H{})
+}
+
+// deleteNode soft-deletes a single node registration. The node must be revoked
+// in the group's roster, because otherwise we get nodes in an illegal
+// deregistered-but-still-activated state. Since the hub can't actually verify
+// the roster, this is purely defense-in-depth; the caller should make sure
+// that the _verified_ roster agrees.
+func (r *restAPI) deleteNode(c *gin.Context) {
+	cgID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid connectivity group ID"})
+		return
+	}
+	nn, err := strconv.ParseInt(c.Param("nodeNumber"), 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid node number"})
+		return
+	}
+	ctx := c.Request.Context()
+
+	var rosterBytes []byte
+	err = r.db.QueryRowContext(ctx,
+		`SELECT roster FROM connectivity_groups WHERE id = ? AND deleted_at_millis IS NULL`,
+		cgID.String(),
+	).Scan(&rosterBytes)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	var one int
+	err = r.db.QueryRowContext(ctx, `
+		SELECT 1 FROM nodes
+		WHERE connectivity_group_id = ?
+		AND node_number = ?
+		AND deleted_at_millis IS NULL`,
+		cgID.String(), int32(nn),
+	).Scan(&one)
+	if err == sql.ErrNoRows {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	} else if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	if !nodeRevokedInRoster(rosterBytes, int32(nn)) {
+		c.JSON(http.StatusConflict, gin.H{
+			"error": "node is not marked revoked in the group's roster",
+		})
+		return
+	}
+
+	res, err := r.db.ExecContext(ctx, `
+		UPDATE nodes
+		SET deleted_at_millis = ?
+		WHERE connectivity_group_id = ?
+		AND node_number = ?
+		AND deleted_at_millis IS NULL`,
+		time.Now().UnixMilli(), cgID.String(), int32(nn),
+	)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if n == 0 {
+		c.JSON(http.StatusNotFound, gin.H{"error": "not found"})
+		return
+	}
+	c.JSON(http.StatusOK, integratorapi.NodeDeleted{Deleted: true})
+}
+
+// nodeRevokedInRoster reports whether the given node is revoked in the roster.
+func nodeRevokedInRoster(rosterBytes []byte, nodeNumber int32) bool {
+	var roster rosterpb.Roster
+	if err := proto.Unmarshal(rosterBytes, &roster); err != nil {
+		return false
+	}
+	for _, n := range roster.GetNodes() {
+		if n.GetNodeNumber() == nodeNumber && n.GetRevoked() {
+			return true
+		}
+	}
+	return false
 }
 
 // groupExists checks that the connectivity group is live, writing a 404 (or

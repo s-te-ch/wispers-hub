@@ -81,6 +81,7 @@ go_library(
         "@org_golang_google_protobuf//proto",
         "@org_golang_x_time//rate",
         "@org_modernc_sqlite//:sqlite",
+        "@connect_client//:roster_go_proto",
     ],
 )
 
@@ -90,8 +91,10 @@ go_test(
     deps = [
         ":standalone",
         "//proto/connect:be_go_grpc",
+        "@connect_client//:roster_go_proto",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
+        "@org_golang_google_protobuf//proto",
     ],
 )
 
