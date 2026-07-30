@@ -58,6 +58,16 @@ type GroupDetail struct {
 	Name          *string       `json:"name,omitempty"`
 	Nodes         []Node        `json:"nodes"` // initialise to render [] instead of null
 	ActivityStats ActivityStats `json:"activityStats"`
+	NodeQuota     NodeQuota     `json:"nodeQuota"`
+}
+
+// NodeQuota is a group's node-quota usage - current counts registered nodes
+// plus unexpired pending registration tokens, the same number the
+// nodes_per_group check compares against Limit. Minting a registration token
+// is allowed iff Current < Limit. Pending usage is Current minus len(Nodes).
+type NodeQuota struct {
+	Limit   *int32 `json:"limit"` // null = unlimited (standalone mode)
+	Current int32  `json:"current"`
 }
 
 type Node struct {

@@ -141,6 +141,32 @@ func TestStandaloneEndToEnd(t *testing.T) {
 		t.Fatalf("create token: unexpected response %+v", tokenResp)
 	}
 
+	// Node quota in the group detail: no plans in standalone mode, so the
+	// limit is null, but current still counts nodes + pending tokens.
+	var detail struct {
+		Nodes     []json.RawMessage `json:"nodes"`
+		NodeQuota struct {
+			Limit   *int32 `json:"limit"`
+			Current int32  `json:"current"`
+		} `json:"nodeQuota"`
+	}
+	getDetail := func() {
+		t.Helper()
+		if code := doJSON(
+			t, rest, "GET", "/api/v1/connectivity-groups/"+group.ID, adminKey, nil, &detail,
+		); code != http.StatusOK {
+			t.Fatalf("get group: got %d, want 200", code)
+		}
+		if detail.NodeQuota.Limit != nil {
+			t.Errorf("node quota limit: got %v, want null (unlimited)", *detail.NodeQuota.Limit)
+		}
+	}
+	getDetail()
+	if detail.NodeQuota.Current != 1 || len(detail.Nodes) != 0 {
+		t.Errorf("pending token quota: got current %d with %d nodes, want 1 and 0",
+			detail.NodeQuota.Current, len(detail.Nodes))
+	}
+
 	reg, err := client.CompleteNodeRegistration(ctx, &bepb.CompleteNodeRegistrationRequest{
 		Token: tokenResp.Token,
 	})
@@ -155,6 +181,13 @@ func TestStandaloneEndToEnd(t *testing.T) {
 	}
 	if reg.GetAttestationJwt() == "" {
 		t.Error("expected an attestation JWT")
+	}
+
+	// Redeeming the token turned its pending quota usage into a node.
+	getDetail()
+	if detail.NodeQuota.Current != 1 || len(detail.Nodes) != 1 {
+		t.Errorf("post-registration quota: got current %d with %d nodes, want 1 and 1",
+			detail.NodeQuota.Current, len(detail.Nodes))
 	}
 
 	// The JWKS is served without auth and verifies the attestation JWT.

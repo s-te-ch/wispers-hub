@@ -280,6 +280,23 @@ func (r *restAPI) getConnectivityGroup(c *gin.Context) {
 		log.Printf("CountActivity error: %v", err)
 	}
 
+	// Node quota: no plans in standalone mode, so the limit stays null
+	// (unlimited), but current is still reported for a uniform API.
+	var pendingTokens int32
+	err = r.db.QueryRowContext(
+		ctx, `
+		SELECT COUNT(*) FROM node_registration_tokens
+		WHERE connectivity_group_id = ?
+		AND used_at_millis IS NULL
+		AND expires_at_millis > ?`,
+		cgID.String(),
+		time.Now().UnixMilli(),
+	).Scan(&pendingTokens)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
 	c.JSON(http.StatusOK, integratorapi.GroupDetail{
 		ID:        cgID.String(),
 		CreatedAt: rfc3339(createdAt),
@@ -287,6 +304,10 @@ func (r *restAPI) getConnectivityGroup(c *gin.Context) {
 		Nodes:     nodeList,
 		ActivityStats: integratorapi.ActivityStats{
 			SuccessfulConnections7d: successfulConnections7d,
+		},
+		NodeQuota: integratorapi.NodeQuota{
+			Limit:   nil,
+			Current: int32(len(nodeList)) + pendingTokens,
 		},
 	})
 }
