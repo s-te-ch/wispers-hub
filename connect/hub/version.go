@@ -18,7 +18,7 @@ import (
 // Version is the hub's release version, reported to clients in the
 // wispers-hub-version response header. The copybara export enforces
 // that this matches the version in MODULE.bazel.
-const Version = "0.3.0"
+const Version = "0.3.1"
 
 // MinClientVersion is this hub's compatibility floor for client versions.
 const MinClientVersion = "0.0.0"
