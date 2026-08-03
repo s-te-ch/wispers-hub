@@ -37,3 +37,16 @@ go_test(
         "apikeys_test.go",
     ],
 )
+
+go_library(
+    name = "turncreds",
+    visibility = ["//visibility:public"],
+    srcs = ["turncreds.go"],
+    importpath = "connect/shared/turncreds",
+)
+
+go_test(
+    name = "turncreds_test",
+    srcs = ["turncreds_test.go"],
+    embed = [":turncreds"],
+)
