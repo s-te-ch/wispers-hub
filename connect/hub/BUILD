@@ -47,6 +47,19 @@ go_test(
 )
 
 go_test(
+    name = "turn_test",
+    srcs = ["turn_test.go"],
+    embed = [":hubsrv"],
+    deps = [
+        "//connect/shared:turncreds",
+        "//proto/connect:be_go_grpc",
+        "@connect_client//:hub_go_grpc",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//metadata",
+    ],
+)
+
+go_test(
     name = "version_test",
     srcs = ["version_test.go"],
     embed = [":hubsrv"],
@@ -107,6 +120,7 @@ go_library(
     importpath = "connect/hub/hubsrv",
     deps = [
         ":routing",
+        "//connect/shared:turncreds",
         "//proto/connect:be_go_grpc",
         "@connect_client//:hub_go_grpc",
         "@connect_client//:roster_go_proto",

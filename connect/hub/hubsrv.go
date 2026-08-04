@@ -10,11 +10,13 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"time"
 
 	"connect/client/proto/hubpb"
 	"connect/client/proto/rosterpb"
 	"connect/hub/routing"
 	"connect/proto/bepb"
+	"connect/shared/turncreds"
 
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
@@ -50,14 +52,18 @@ type HubServer struct {
 	router     *routing.Router
 	limiter    *Limiter
 	stunServer string
+	turnServer string // empty disables TURN
+	turnSecret []byte
 }
 
-func NewHubServer(beClient bepb.BackendClient, stunServer string) *HubServer {
+func NewHubServer(beClient bepb.BackendClient, stunServer, turnServer string, turnSecret []byte) *HubServer {
 	return &HubServer{
 		beClient:   beClient,
 		router:     routing.NewRouter(),
 		limiter:    NewLimiter(2.0, 20), // 2 QPS, burst of 20
 		stunServer: stunServer,
+		turnServer: turnServer,
+		turnSecret: turnSecret,
 	}
 }
 
@@ -316,23 +322,48 @@ func (s *HubServer) GetGroupMetadata(
 	}, nil
 }
 
+// turnCredentialTTL covers connection setup. Established connections
+// survive it.
+const turnCredentialTTL = 10 * time.Minute
+
 func (s *HubServer) GetStunTurnConfig(
 	ctx context.Context, req *hubpb.StunTurnConfigRequest,
 ) (*hubpb.StunTurnConfig, error) {
-	_, _, err := s.authenticateAndRateLimit(ctx)
+	cgID, _, err := s.authenticateAndRateLimit(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// TODO: Get actual TURN credentials from backend/coturn
-	// For now, return STUN only
-	return &hubpb.StunTurnConfig{
-		StunServer:      s.stunServer,
-		TurnServer:      "", // TODO: Add TURN support
-		TurnUsername:    "",
-		TurnPassword:    "",
-		ExpiresAtMillis: 0,
-	}, nil
+	cfg := &hubpb.StunTurnConfig{StunServer: s.stunServer}
+	if s.turnServer == "" {
+		return cfg, nil
+	}
+	policy, err := s.beClient.GetTurnPolicy(ctx, &bepb.GetTurnPolicyRequest{
+		ConnectivityGroupId: cgID,
+	})
+	if err != nil {
+		log.Printf("GetTurnPolicy(%s) backend error: %v", cgID, err)
+		return nil, err // Pass through backend error
+	}
+	if policy.GetTurnCeilBps() <= 0 {
+		return cfg, nil // plan without TURN
+	}
+
+	// Truncate to whole seconds. The credential's wire format carries Unix
+	// seconds, and ExpiresAtMillis must agree with it exactly.
+	expiry := time.Now().Add(turnCredentialTTL).Truncate(time.Second)
+	username, password := turncreds.Mint(
+		s.turnSecret,
+		"org-"+policy.GetOrganisationId(),
+		policy.GetTurnFloorBps(),
+		policy.GetTurnCeilBps(),
+		expiry,
+	)
+	cfg.TurnServer = s.turnServer
+	cfg.TurnUsername = username
+	cfg.TurnPassword = password
+	cfg.ExpiresAtMillis = expiry.UnixMilli()
+	return cfg, nil
 }
 
 func (s *HubServer) StartConnection(

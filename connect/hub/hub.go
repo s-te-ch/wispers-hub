@@ -29,6 +29,7 @@ var (
 	beAddr   = flag.String("be", "be:50051", "Backend gRPC address, used in managed mode")
 	dbPath   = flag.String("db", "", "Override for the state DB path, used in standalone mode")
 	stunAddr = flag.String("stun-server", "", "STUN server host:port. Required in standalone mode.")
+	turnAddr = flag.String("turn-server", "", "TURN relay host:port; empty disables TURN. Secret via WISPERS_TURN_SECRET.")
 )
 
 // The hosted STUN server, used only as the managed-mode default.
@@ -65,7 +66,7 @@ func runManaged() error {
 	if stunServer == "" {
 		stunServer = managedDefaultStunServer
 	}
-	return serveHub(hubsrv.NewHubServer(bepb.NewBackendClient(beConn), stunServer))
+	return serveHub(hubsrv.NewHubServer(bepb.NewBackendClient(beConn), stunServer, *turnAddr, readTurnSecretOrDie()))
 }
 
 func runStandalone() error {
@@ -97,7 +98,7 @@ func runStandalone() error {
 		return err
 	}
 	defer stop()
-	hubServer := hubsrv.NewHubServer(beClient, *stunAddr)
+	hubServer := hubsrv.NewHubServer(beClient, *stunAddr, *turnAddr, readTurnSecretOrDie())
 
 	// Admin REST API for wcadm and waserver. On the hosted version, this is a
 	// separate server. The hub server doubles as the online-status oracle: in
@@ -187,4 +188,13 @@ func newHubGRPCServer(hubServer *hubsrv.HubServer) *grpc.Server {
 	}
 	reflection.Register(grpcServer)
 	return grpcServer
+}
+
+// readTurnSecretOrDie returns the TURN shared secret from the environment.
+func readTurnSecretOrDie() []byte {
+	secret := os.Getenv("WISPERS_TURN_SECRET")
+	if *turnAddr != "" && secret == "" {
+		log.Fatal("--turn-server requires WISPERS_TURN_SECRET")
+	}
+	return []byte(secret)
 }

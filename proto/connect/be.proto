@@ -26,6 +26,9 @@ service Backend {
   // Returns the metadata for a connectivity group.
   rpc GetGroupMetadata(GetGroupMetadataRequest) returns (GetGroupMetadataResponse) {}
 
+  // Returns the TURN bandwidth policy that applies to the connectivity group.
+  rpc GetTurnPolicy(GetTurnPolicyRequest) returns (GetTurnPolicyResponse) {}
+
   // Updates the roster for a connectivity group.
   // Validates signatures and uses optimistic locking.
   rpc UpdateRoster(UpdateRosterRequest) returns (UpdateRosterResponse) {}
@@ -158,3 +161,15 @@ message ConnectionEvent {
   int32 peer_node_number = 2;
 }
 message RosterUpdateEvent { string kind = 1; }     // "activation" or "revocation"
+
+message GetTurnPolicyRequest {
+  string connectivity_group_id = 1;
+}
+
+// TURN bandwidth policy is currently keyed on the org ID.
+// If floor & ceiling are both 0, the plan does not include TURN support.
+message GetTurnPolicyResponse {
+  string organisation_id = 1;
+  int64 turn_floor_bps = 2;
+  int64 turn_ceil_bps = 3;
+}
