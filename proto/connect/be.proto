@@ -167,9 +167,15 @@ message GetTurnPolicyRequest {
 }
 
 // TURN bandwidth policy is currently keyed on the org ID.
-// If floor & ceiling are both 0, the plan does not include TURN support.
 message GetTurnPolicyResponse {
-  string organisation_id = 1;
-  int64 turn_floor_bps = 2;
-  int64 turn_ceil_bps = 3;
+  bool enabled = 1;
+
+  // Bandwidth limits.
+  // Unset/zero floor means no floor guarantee.
+  // Unset/zero ceiling means no bandwidth limit.
+  int64 floor_bps = 2;
+  int64 ceil_bps = 3;
+
+  // Bandwidth enforcement subject.
+  string organisation_id = 4;
 }

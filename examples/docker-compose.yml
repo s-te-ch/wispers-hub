@@ -5,9 +5,12 @@
 #
 # Usage:
 #   1. Point your public DNS name at this machine (certificates need it).
-#   2. export PUBLIC_HOST=<that DNS name>
+#   2. echo "PUBLIC_HOST=<that DNS name>" > .env
 #   3. docker compose up -d
 #   4. cat data/initial-api-key  # your admin API key
+#
+# To add TURN relay support, see "Enabling TURN" in the README
+# (docker-compose.turn.yml).
 #
 # Then manage the hub with wcadm (from the wispers-client repo) or curl
 # against https://$PUBLIC_HOST/api/v1, authenticated with that key.

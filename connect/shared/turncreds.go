@@ -1,13 +1,13 @@
 // SPDX-FileCopyrightText: 2026 Scheidegger Technology GmbH
 // SPDX-License-Identifier: AGPL-3.0-only
 
-// TURN credential minting and verification, wire-compatible with the coturn
-// TURN REST API (use-auth-secret):
+// TURN credential minting and verification, wire-compatible with coturn's
+// use-auth-secret mechanism:
 //
 //	username = "<expiry-unix-seconds>:<subject>[:<floor-bps>:<ceil-bps>]"
 //	password = base64(hmac-sha1(secret, username))
 //
-// The expiry comes first so coturn's parser finds it; the rest of the
+// The expiry comes first so coturn's parser finds it. The rest of the
 // username is opaque to coturn but carries the bandwidth policy for our own
 // relay.
 package turncreds
@@ -76,7 +76,9 @@ func Parse(username string) (*Credential, error) {
 		if err != nil {
 			return nil, fmt.Errorf("turncreds: bad ceil: %w", err)
 		}
-		if floor < 0 || ceil < floor {
+		// Zero ceiling with a floor means "floor guarantee, no ceiling"
+		// (the relay may borrow up to node capacity).
+		if floor < 0 || (ceil != 0 && ceil < floor) {
 			return nil, fmt.Errorf("turncreds: invalid rates %d/%d", floor, ceil)
 		}
 		cred.FloorBps, cred.CeilBps = floor, ceil

@@ -345,7 +345,7 @@ func (s *HubServer) GetStunTurnConfig(
 		log.Printf("GetTurnPolicy(%s) backend error: %v", cgID, err)
 		return nil, err // Pass through backend error
 	}
-	if policy.GetTurnCeilBps() <= 0 {
+	if !policy.GetEnabled() {
 		return cfg, nil // plan without TURN
 	}
 
@@ -355,8 +355,8 @@ func (s *HubServer) GetStunTurnConfig(
 	username, password := turncreds.Mint(
 		s.turnSecret,
 		"org-"+policy.GetOrganisationId(),
-		policy.GetTurnFloorBps(),
-		policy.GetTurnCeilBps(),
+		policy.GetFloorBps(),
+		policy.GetCeilBps(),
 		expiry,
 	)
 	cfg.TurnServer = s.turnServer

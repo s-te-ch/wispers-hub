@@ -263,6 +263,23 @@ func TestStandaloneEndToEnd(t *testing.T) {
 		t.Errorf("name: got %q, want test-group", meta.GetName())
 	}
 
+	// --- TURN policy: enabled, no bandwidth model, instance ID as org ---
+	turnPolicy, err := client.GetTurnPolicy(ctx, &bepb.GetTurnPolicyRequest{
+		ConnectivityGroupId: group.ID,
+	})
+	if err != nil {
+		t.Fatalf("GetTurnPolicy: %v", err)
+	}
+	if !turnPolicy.GetEnabled() || turnPolicy.GetOrganisationId() != st.InstanceID ||
+		turnPolicy.GetCeilBps() != 0 {
+		t.Errorf("turn policy: %+v, want enabled, org=instance ID, no rates", turnPolicy)
+	}
+	if _, err := client.GetTurnPolicy(ctx, &bepb.GetTurnPolicyRequest{
+		ConnectivityGroupId: "00000000-0000-0000-0000-000000000000",
+	}); err == nil {
+		t.Error("GetTurnPolicy for unknown group should fail")
+	}
+
 	// --- Roster with optimistic locking ---
 	roster, err := client.GetRoster(ctx, &bepb.GetRosterRequest{ConnectivityGroupId: group.ID})
 	if err != nil {

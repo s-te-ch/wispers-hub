@@ -303,6 +303,35 @@ func (b *Backend) GetGroupMetadata(
 	return resp, nil
 }
 
+// GetTurnPolicy: In standalone mode, we just return a "no guarantee, no cap"
+// policy. Except if the connectivity group doesn't exist, in which case we
+// return NotFound.
+func (b *Backend) GetTurnPolicy(
+	ctx context.Context, req *bepb.GetTurnPolicyRequest,
+) (*bepb.GetTurnPolicyResponse, error) {
+	cgID, err := parseGroupID(req.GetConnectivityGroupId())
+	if err != nil {
+		return nil, err
+	}
+	var one int
+	err = b.db.QueryRowContext(ctx, `
+		SELECT 1 FROM connectivity_groups
+		WHERE id = ?
+		AND deleted_at_millis IS NULL`,
+		cgID,
+	).Scan(&one)
+	if err == sql.ErrNoRows {
+		return nil, status.Error(codes.NotFound, "connectivity group not found")
+	} else if err != nil {
+		return nil, internal("GetTurnPolicy", err)
+	}
+
+	return &bepb.GetTurnPolicyResponse{
+		Enabled:        true,
+		OrganisationId: b.instanceID,
+	}, nil
+}
+
 func (b *Backend) UpdateRoster(
 	ctx context.Context, req *bepb.UpdateRosterRequest,
 ) (*bepb.UpdateRosterResponse, error) {

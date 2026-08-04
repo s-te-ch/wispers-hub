@@ -53,8 +53,9 @@ func turnServer(be bepb.BackendClient) *HubServer {
 func TestGetStunTurnConfigMintsForEntitledPlan(t *testing.T) {
 	s := turnServer(&fakeBE{policy: &bepb.GetTurnPolicyResponse{
 		OrganisationId: "0d2384a1-aaaa-bbbb-cccc-ddddeeeeffff",
-		TurnFloorBps:   10_000_000,
-		TurnCeilBps:    50_000_000,
+		FloorBps:       10_000_000,
+		CeilBps:        50_000_000,
+		Enabled:        true,
 	}})
 	cfg, err := s.GetStunTurnConfig(authedCtx(), &hubpb.StunTurnConfigRequest{})
 	if err != nil {
@@ -80,9 +81,29 @@ func TestGetStunTurnConfigMintsForEntitledPlan(t *testing.T) {
 	}
 }
 
+// The standalone version: enabled with no rates mints a credential without
+// rate segments (subject only), which coturn accepts and our relay treats
+// as unlimited.
+func TestGetStunTurnConfigMintsUnlimitedWithoutRates(t *testing.T) {
+	s := turnServer(&fakeBE{policy: &bepb.GetTurnPolicyResponse{
+		OrganisationId: "standalone-instance", Enabled: true,
+	}})
+	cfg, err := s.GetStunTurnConfig(authedCtx(), &hubpb.StunTurnConfigRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	cred, err := turncreds.Verify(secret, cfg.TurnUsername, cfg.TurnPassword)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cred.Subject != "org-standalone-instance" || cred.FloorBps != 0 || cred.CeilBps != 0 {
+		t.Fatalf("cred = %+v", cred)
+	}
+}
+
 func TestGetStunTurnConfigStunOnlyWithoutEntitlement(t *testing.T) {
 	s := turnServer(&fakeBE{policy: &bepb.GetTurnPolicyResponse{
-		OrganisationId: "x", TurnFloorBps: 0, TurnCeilBps: 0,
+		OrganisationId: "x", FloorBps: 0, CeilBps: 0,
 	}})
 	cfg, err := s.GetStunTurnConfig(authedCtx(), &hubpb.StunTurnConfigRequest{})
 	if err != nil {

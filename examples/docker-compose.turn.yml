@@ -1,0 +1,32 @@
+# SPDX-FileCopyrightText: 2026 Scheidegger Technology GmbH
+# SPDX-License-Identifier: AGPL-3.0-only
+
+# TURN overlay: adds relay support to the base setup. See "Enabling TURN"
+# in the README. Activate by putting into .env:
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.turn.yml
+#   TURN_SECRET=<output of: openssl rand -base64 32>
+#
+# then `docker compose up -d` as usual.
+
+services:
+  hub:
+    command:
+      - --stun-server=${PUBLIC_HOST:?set PUBLIC_HOST to your public DNS name}:3478
+      - --turn-server=${PUBLIC_HOST}:3478
+    environment:
+      WISPERS_TURN_SECRET: ${TURN_SECRET:?generate with "openssl rand -base64 32" (see README, Enabling TURN)}
+
+  stun:
+    command:
+      - --no-stdout-log
+      - --external-ip=$$(detect-external-ip)
+      - --use-auth-secret
+      - --static-auth-secret=${TURN_SECRET:?generate with "openssl rand -base64 32" (see README, Enabling TURN)}
+    volumes:
+      # Replaces the STUN-only config (same mount target as the base file).
+      - ./turnserver-turn.conf:/etc/coturn/turnserver.conf:ro
+    ports:
+      # Relay allocation range; must match turnserver-turn.conf and be open
+      # in the firewall.
+      - "49152-49407:49152-49407/udp"

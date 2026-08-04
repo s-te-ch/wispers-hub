@@ -70,6 +70,9 @@ func TestExpiredIsParseableButExpired(t *testing.T) {
 }
 
 func TestParseRejectsGarbage(t *testing.T) {
+	if cred, err := Parse("1:s:10:0"); err != nil || cred.FloorBps != 10 || cred.CeilBps != 0 {
+		t.Errorf("floor-only credential should parse (no-ceiling semantics): %+v, %v", cred, err)
+	}
 	for _, u := range []string{"", "123", "abc:def", "123:", "1:2:3", "1:s:x:9", "1:s:9:x", "1:s:50:10", "1:s:-1:5", "1:s:1:2:3"} {
 		if _, err := Parse(u); err == nil {
 			t.Errorf("Parse(%q) succeeded", u)
