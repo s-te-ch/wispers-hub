@@ -6,6 +6,7 @@ require (
 	github.com/bazelbuild/rules_go v0.51.0
 	github.com/pion/stun/v3 v3.1.6
 	github.com/pion/turn/v5 v5.0.12
+	github.com/vishvananda/netlink v1.3.1
 	google.golang.org/grpc v1.72.1
 )
 
@@ -49,6 +50,7 @@ require (
 	github.com/sethvargo/go-retry v0.3.0 // indirect
 	github.com/twitchyliquid64/golang-asm v0.15.1 // indirect
 	github.com/ugorji/go/codec v1.3.1 // indirect
+	github.com/vishvananda/netns v0.0.5 // indirect
 	github.com/wlynxg/anet v0.0.5 // indirect
 	github.com/xi2/xz v0.0.0-20171230120015-48954b6210f8 // indirect
 	go.uber.org/mock v0.6.0 // indirect
@@ -59,6 +61,7 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.10.0 // indirect
+	s-te.ch/go v0.1.0 // indirect
 )
 
 require (
