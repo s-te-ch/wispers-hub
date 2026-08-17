@@ -74,8 +74,35 @@ docker run --rm coturn/coturn:4 turnutils_uclient -y \
 	-W "$TURN_SECRET" <your PUBLIC_HOST>
 ```
 
-A working relay reports round-trips ("total send dropped 0"). Timeouts mean
-the relay ports aren't reachable — check the firewall.
+On a working setup this authenticates, allocates, and then fails with
+`channel bind: error 403` — **the 403 is the expected success signature
+here**: in `-y` mode the tool asks the relay to send to its own relayed
+address, which coturn (behind docker NAT) maps back to a private address
+that the denylist below correctly refuses. Real nodes relay to each
+other's public addresses and are unaffected. What to read from other
+outcomes: a 401/`unauthorized` means hub and coturn disagree on
+`TURN_SECRET` (restart both: `docker compose up -d`); a timeout means
+coturn isn't reachable on 3478 at all.
+
+The one thing the check above cannot see is whether the **relay port
+range** is open in the firewall, because its traffic never leaves the
+box. To verify the full relay path end to end you need a helper machine
+with a public IP and one reachable UDP port (any cloud VM):
+
+```sh
+# On the helper (public IP $PEER_IP, UDP port 3480 open):
+docker run --rm --network host --entrypoint turnutils_peer \
+	coturn/coturn:4 -p 3480
+
+# From anywhere else (--entrypoint matters: the image's default
+# entrypoint eats the -e flag):
+docker run --rm --entrypoint turnutils_uclient coturn/coturn:4 \
+	-e $PEER_IP -r 3480 -W "$TURN_SECRET" <your PUBLIC_HOST>
+```
+
+A working relay reports `Total lost packets 0 (0.000000%)`; 100% loss
+means relayed traffic isn't making it out and back — check the relay
+port range in the firewall (and that the helper's port is really open).
 
 Notes:
 
