@@ -7,7 +7,7 @@
 
 module(
     name = "wispers-hub",
-    version = "0.3.1",
+    version = "0.4.0",
 )
 
 ## Go SDK and module management ################################################
@@ -75,7 +75,7 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(
     name = "connect_client",
     build_file = "//third_party:client.BUILD",
-    sha256 = "bdb2295e0a79dc9c4b02f5d9c9e4a33a1d9940dc32aa111007860897973fddf4",
-    strip_prefix = "wispers-client-0.11.0",
-    urls = ["https://github.com/s-te-ch/wispers-client/archive/refs/tags/v0.11.0.tar.gz"],
+    sha256 = "8c55466638c6f920bda45e7c8d7ca63a225e265a0d72235ae62e8c0d833e36d3",
+    strip_prefix = "wispers-client-0.13.0",
+    urls = ["https://github.com/s-te-ch/wispers-client/archive/refs/tags/v0.13.0.tar.gz"],
 )
