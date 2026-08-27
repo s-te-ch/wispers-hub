@@ -17,9 +17,12 @@ go_binary(
         ":hubsrv",
         ":standalone",
         "//proto/connect:be_go_grpc",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@connect_client//:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//health",
+        "@org_golang_google_grpc//health/grpc_health_v1",
         "@org_golang_google_grpc//reflection",
     ],
 )
@@ -35,10 +38,13 @@ go_test(
         ":hubsrv",
         ":standalone",
         "//proto/connect:be_go_grpc",
+        "@com_github_prometheus_client_golang//prometheus/promhttp",
         "@connect_client//:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//health",
+        "@org_golang_google_grpc//health/grpc_health_v1",
         "@org_golang_google_grpc//metadata",
         "@org_golang_google_grpc//reflection",
         "@org_golang_google_grpc//status",
@@ -115,6 +121,7 @@ go_library(
     name = "hubsrv",
     srcs = [
         "hubsrv.go",
+        "metrics.go",
         "version.go",
     ],
     importpath = "connect/hub/hubsrv",
@@ -122,6 +129,8 @@ go_library(
         ":routing",
         "//connect/shared:turncreds",
         "//proto/connect:be_go_grpc",
+        "@com_github_prometheus_client_golang//prometheus",
+        "@com_github_prometheus_client_golang//prometheus/promauto",
         "@connect_client//:hub_go_grpc",
         "@connect_client//:roster_go_proto",
         "@org_golang_google_grpc//:grpc",
@@ -130,6 +139,18 @@ go_library(
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//proto",
         "@org_golang_x_time//rate",
+    ],
+)
+
+go_test(
+    name = "metrics_test",
+    srcs = ["metrics_test.go"],
+    embed = [":hubsrv"],
+    deps = [
+        "@com_github_prometheus_client_golang//prometheus/testutil",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//status",
     ],
 )
 

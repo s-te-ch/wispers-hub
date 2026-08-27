@@ -18,18 +18,22 @@ import (
 	"connect/hub/standalone"
 	"connect/proto/bepb"
 
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
+	"google.golang.org/grpc/health"
+	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
 var (
-	grpcPort = flag.Int("grpc-port", 50051, "The gRPC port")
-	restPort = flag.Int("rest-port", 2357, "The REST port (only used in standalone mode)")
-	beAddr   = flag.String("be", "be:50051", "Backend gRPC address, used in managed mode")
-	dbPath   = flag.String("db", "", "Override for the state DB path, used in standalone mode")
-	stunAddr = flag.String("stun-server", "", "STUN server host:port. Required in standalone mode.")
-	turnAddr = flag.String("turn-server", "", "TURN relay host:port; empty disables TURN. Secret via WISPERS_TURN_SECRET.")
+	grpcPort    = flag.Int("grpc-port", 50051, "The gRPC port")
+	restPort    = flag.Int("rest-port", 2357, "The REST port (only used in standalone mode)")
+	metricsPort = flag.Int("metrics-port", 0, "Prometheus metrics HTTP port; 0 disables")
+	beAddr      = flag.String("be", "be:50051", "Backend gRPC address, used in managed mode")
+	dbPath      = flag.String("db", "", "Override for the state DB path, used in standalone mode")
+	stunAddr    = flag.String("stun-server", "", "STUN server host:port. Required in standalone mode.")
+	turnAddr    = flag.String("turn-server", "", "TURN relay host:port; empty disables TURN. Secret via WISPERS_TURN_SECRET.")
 )
 
 // The hosted STUN server, used only as the managed-mode default.
@@ -41,6 +45,9 @@ func main() {
 	flag.Var(&runMode, "mode", "Run mode (standalone|managed)")
 	flag.Parse()
 	var err error
+	if err = startMetricsServer(); err != nil {
+		log.Fatalf("metrics server: %v", err)
+	}
 	if runMode == Managed {
 		err = runManaged()
 	} else {
@@ -49,6 +56,26 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+}
+
+// startMetricsServer serves the Prometheus /metrics page.
+func startMetricsServer() error {
+	if *metricsPort == 0 {
+		return nil
+	}
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", *metricsPort))
+	if err != nil {
+		return fmt.Errorf("metrics listener: %w", err)
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/metrics", promhttp.Handler())
+	log.Printf("Metrics listening at %v", lis.Addr())
+	go func() {
+		if err := http.Serve(lis, mux); err != nil {
+			log.Printf("metrics server: %v", err)
+		}
+	}()
+	return nil
 }
 
 func runManaged() error {
@@ -179,8 +206,16 @@ func serveHub(hubServer *hubsrv.HubServer) error {
 // (as the wispers-hub repo does until its client pin is bumped), where the
 // primary registration already claims the legacy name.
 func newHubGRPCServer(hubServer *hubsrv.HubServer) *grpc.Server {
-	grpcServer := grpc.NewServer(hubsrv.VersionInterceptors()...)
+
+	opts := append(
+		// Metrics first so version-rejected calls are counted too.
+		hubsrv.MetricsInterceptors(),
+		hubsrv.VersionInterceptors()...,
+	)
+	grpcServer := grpc.NewServer(opts...)
 	hubpb.RegisterHubServer(grpcServer, hubServer)
+	// Standard health service, for probes.
+	healthpb.RegisterHealthServer(grpcServer, health.NewServer())
 	const legacyName = "connect.hub.Hub"
 	if legacy := hubpb.Hub_ServiceDesc; legacy.ServiceName != legacyName {
 		legacy.ServiceName = legacyName
