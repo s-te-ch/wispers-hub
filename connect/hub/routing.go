@@ -62,6 +62,11 @@ func (c *Connector) Evicted() bool {
 	return c.evicted.Load()
 }
 
+// Close terminates the connection from the server side; Run returns.
+func (c *Connector) Close() {
+	c.cancel()
+}
+
 func (c *Connector) recvLoop() {
 	var msg *hubpb.ServingResponse
 	var err error

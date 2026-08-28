@@ -10,14 +10,18 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"connect/client/proto/hubpb"
 	"connect/client/proto/rosterpb"
 	"connect/hub/routing"
+	"connect/hub/sharding"
 	"connect/proto/bepb"
 	"connect/shared/turncreds"
 
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 	"golang.org/x/time/rate"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
@@ -48,22 +52,24 @@ func (l *Limiter) Allow(key string) bool {
 
 type HubServer struct {
 	hubpb.UnimplementedHubServer
-	beClient   bepb.BackendClient
-	router     *routing.Router
-	limiter    *Limiter
-	stunServer string
-	turnServer string // empty disables TURN
-	turnSecret []byte
+	beClient      bepb.BackendClient
+	router        *routing.Router
+	limiter       *Limiter
+	stunServer    string
+	turnServer    string // empty disables TURN
+	turnSecret    []byte
+	assignedShard int
 }
 
-func NewHubServer(beClient bepb.BackendClient, stunServer, turnServer string, turnSecret []byte) *HubServer {
+func NewHubServer(beClient bepb.BackendClient, stunServer, turnServer string, turnSecret []byte, assignedShard int) *HubServer {
 	return &HubServer{
-		beClient:   beClient,
-		router:     routing.NewRouter(),
-		limiter:    NewLimiter(2.0, 20), // 2 QPS, burst of 20
-		stunServer: stunServer,
-		turnServer: turnServer,
-		turnSecret: turnSecret,
+		beClient:      beClient,
+		router:        routing.NewRouter(),
+		limiter:       NewLimiter(2.0, 20), // 2 QPS, burst of 20
+		stunServer:    stunServer,
+		turnServer:    turnServer,
+		turnSecret:    turnSecret,
+		assignedShard: assignedShard,
 	}
 }
 
@@ -443,6 +449,13 @@ func (s *HubServer) DeregisterNode(
 	return &hubpb.DeregisterNodeResponse{}, nil
 }
 
+// Metric counting the number of times StartServing sheds (closes) a stream to
+// reshard it after a failover.
+var failedOverConnsShed = promauto.NewCounter(prometheus.CounterOpts{
+	Name: "hub_failed_over_conns_shed_total",
+	Help: "Failed-over (non-owned) serving streams shed by the shard-ownership TTL.",
+})
+
 func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 	cgID, nodeNum, err := s.authenticateAndRateLimit(stream.Context())
 	if err != nil {
@@ -468,6 +481,14 @@ func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 		return err
 	}
 	defer c.Disconnect()
+	// A stream for the other shard reaches this hub only while the
+	// frontends are failing over; shed it after a TTL so it re-homes.
+	var shed *atomic.Bool
+	stopTTL := func() {}
+	if s.assignedShard != 0 && sharding.GetShard(cgID) != s.assignedShard {
+		stopTTL, shed = sharding.ShedAfterTTL(cgID, nodeNum, c.Close)
+	}
+	defer stopTTL()
 	c.Run()
 
 	s.logActivity(context.Background(), cgID, nodeNum, "disconnect", true, &bepb.EventDetails{
@@ -480,6 +501,13 @@ func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 			codes.Aborted,
 			"connection superseded by a newer connection for this node; "+
 				"is another instance running on the same credentials?",
+		)
+	}
+	if shed != nil && shed.Load() {
+		failedOverConnsShed.Inc()
+		return status.Error(
+			codes.Unavailable,
+			"resharding: this hub no longer serves this connectivity group; please reconnect",
 		)
 	}
 	return nil

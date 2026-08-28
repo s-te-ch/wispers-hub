@@ -25,7 +25,7 @@ import (
 // must answer to that name until 1.0, whichever client proto version it was
 // built against (post-rename via the alias, pre-rename natively).
 func TestHubServesLegacyServiceName(t *testing.T) {
-	srv := newHubGRPCServer(hubsrv.NewHubServer(nil, "stun.example.invalid:3478", "", nil))
+	srv := newHubGRPCServer(hubsrv.NewHubServer(nil, "stun.example.invalid:3478", "", nil, 0))
 	info := srv.GetServiceInfo()
 	if _, ok := info["connect.hub.Hub"]; !ok {
 		t.Errorf("hub gRPC server does not serve connect.hub.Hub; services: %v",
@@ -37,7 +37,7 @@ func TestHubServesLegacyServiceName(t *testing.T) {
 // their version are not yet widely deployed. For now, test what's testable
 // (invalid version strings etc.)
 func TestHubVersionGate(t *testing.T) {
-	srv := newHubGRPCServer(hubsrv.NewHubServer(nil, "stun.example.invalid:3478", "", nil))
+	srv := newHubGRPCServer(hubsrv.NewHubServer(nil, "stun.example.invalid:3478", "", nil, 0))
 	lis := bufconn.Listen(1 << 20)
 	go srv.Serve(lis)
 	defer srv.Stop()

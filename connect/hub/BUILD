@@ -127,6 +127,7 @@ go_library(
     importpath = "connect/hub/hubsrv",
     deps = [
         ":routing",
+        ":sharding",
         "//connect/shared:turncreds",
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus",
@@ -152,6 +153,33 @@ go_test(
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
     ],
+)
+
+go_test(
+    name = "shed_integration_test",
+    srcs = ["shed_integration_test.go"],
+    embed = [":hubsrv"],
+    deps = [
+        ":sharding",
+        "//proto/connect:be_go_grpc",
+        "@connect_client//:hub_go_grpc",
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//codes",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//status",
+    ],
+)
+
+go_library(
+    name = "sharding",
+    srcs = ["sharding.go"],
+    importpath = "connect/hub/sharding",
+)
+
+go_test(
+    name = "sharding_test",
+    srcs = ["sharding_test.go"],
+    embed = [":sharding"],
 )
 
 go_library(

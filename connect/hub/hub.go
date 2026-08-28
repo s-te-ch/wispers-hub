@@ -27,13 +27,14 @@ import (
 )
 
 var (
-	grpcPort    = flag.Int("grpc-port", 50051, "The gRPC port")
-	restPort    = flag.Int("rest-port", 2357, "The REST port (only used in standalone mode)")
-	metricsPort = flag.Int("metrics-port", 0, "Prometheus metrics HTTP port; 0 disables")
-	beAddr      = flag.String("be", "be:50051", "Backend gRPC address, used in managed mode")
-	dbPath      = flag.String("db", "", "Override for the state DB path, used in standalone mode")
-	stunAddr    = flag.String("stun-server", "", "STUN server host:port. Required in standalone mode.")
-	turnAddr    = flag.String("turn-server", "", "TURN relay host:port; empty disables TURN. Secret via WISPERS_TURN_SECRET.")
+	grpcPort      = flag.Int("grpc-port", 50051, "The gRPC port")
+	assignedShard = flag.Int("assigned-shard", 0, "In manged mode, the shard of the cgID key space this hub serves. 0 for everything, 1 or 2 for specific shards")
+	restPort      = flag.Int("rest-port", 2357, "The REST port (only used in standalone mode)")
+	metricsPort   = flag.Int("metrics-port", 0, "Prometheus metrics HTTP port; 0 disables")
+	beAddr        = flag.String("be", "be:50051", "Backend gRPC address, used in managed mode")
+	dbPath        = flag.String("db", "", "Override for the state DB path, used in standalone mode")
+	stunAddr      = flag.String("stun-server", "", "STUN server host:port. Required in standalone mode.")
+	turnAddr      = flag.String("turn-server", "", "TURN relay host:port; empty disables TURN. Secret via WISPERS_TURN_SECRET.")
 )
 
 // The hosted STUN server, used only as the managed-mode default.
@@ -93,7 +94,7 @@ func runManaged() error {
 	if stunServer == "" {
 		stunServer = managedDefaultStunServer
 	}
-	return serveHub(hubsrv.NewHubServer(bepb.NewBackendClient(beConn), stunServer, *turnAddr, readTurnSecretOrDie()))
+	return serveHub(hubsrv.NewHubServer(bepb.NewBackendClient(beConn), stunServer, *turnAddr, readTurnSecretOrDie(), *assignedShard))
 }
 
 func runStandalone() error {
@@ -125,7 +126,8 @@ func runStandalone() error {
 		return err
 	}
 	defer stop()
-	hubServer := hubsrv.NewHubServer(beClient, *stunAddr, *turnAddr, readTurnSecretOrDie())
+	// Standalone hubs are unsharded: no assigned shard, no shard TTLs.
+	hubServer := hubsrv.NewHubServer(beClient, *stunAddr, *turnAddr, readTurnSecretOrDie(), 0)
 
 	// Admin REST API for wcadm and waserver. On the hosted version, this is a
 	// separate server. The hub server doubles as the online-status oracle: in

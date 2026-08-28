@@ -47,7 +47,7 @@ func authedCtx() context.Context {
 var secret = []byte("hub-test-secret")
 
 func turnServer(be bepb.BackendClient) *HubServer {
-	return NewHubServer(be, "stun.test:3478", "relay.test:3478", secret)
+	return NewHubServer(be, "stun.test:3478", "relay.test:3478", secret, 0)
 }
 
 func TestGetStunTurnConfigMintsForEntitledPlan(t *testing.T) {
@@ -125,7 +125,7 @@ func TestGetStunTurnConfigFailsOnBackendError(t *testing.T) {
 
 // No -turn-server configured: STUN-only without even consulting be.
 func TestGetStunTurnConfigTurnDisabled(t *testing.T) {
-	s := NewHubServer(&fakeBE{policyErr: errors.New("must not be called")}, "stun.test:3478", "", nil)
+	s := NewHubServer(&fakeBE{policyErr: errors.New("must not be called")}, "stun.test:3478", "", nil, 0)
 	cfg, err := s.GetStunTurnConfig(authedCtx(), &hubpb.StunTurnConfigRequest{})
 	if err != nil {
 		t.Fatal(err)
