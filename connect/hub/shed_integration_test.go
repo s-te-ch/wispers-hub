@@ -27,7 +27,7 @@ func TestStartServingShedsNonOwnedStream(t *testing.T) {
 	defer restore()
 
 	// daaa… is in shard 2; this hub is assigned shard 1.
-	err := runServing(t, 1, "daaaaaaa-1111-4111-8111-222222222222", nil)
+	err := runServing(t, 1, "daaaaaaa-1111-4111-8111-222222222222", "0.14.0", nil)
 	if status.Code(err) != codes.Unavailable || !strings.Contains(err.Error(), "resharding") {
 		t.Fatalf("want Unavailable resharding error, got %v", err)
 	}
@@ -44,8 +44,25 @@ func TestStartServingKeepsOwnedStream(t *testing.T) {
 		time.Sleep(80 * time.Millisecond)
 		close(clientGone)
 	}()
-	if err := runServing(t, 1, "1aaaaaaa-1111-4111-8111-222222222222", clientGone); err != nil {
+	if err := runServing(t, 1, "1aaaaaaa-1111-4111-8111-222222222222", "0.14.0", clientGone); err != nil {
 		t.Fatalf("owned stream ended with error: %v", err)
+	}
+}
+
+func TestStartServingSparesPreCheckInClient(t *testing.T) {
+	restore := shrinkShardTTL(t)
+	defer restore()
+
+	// Non-owned group, but the client predates CheckIn (no version
+	// header): shedding it would create a zombie, so it must be
+	// spared and end only on client disconnect.
+	clientGone := make(chan struct{})
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		close(clientGone)
+	}()
+	if err := runServing(t, 1, "daaaaaaa-1111-4111-8111-222222222222", "", clientGone); err != nil {
+		t.Fatalf("pre-CheckIn stream ended with error: %v", err)
 	}
 }
 
@@ -58,7 +75,7 @@ func TestStartServingKeepsStreamWithoutAssignedShard(t *testing.T) {
 		time.Sleep(80 * time.Millisecond)
 		close(clientGone)
 	}()
-	if err := runServing(t, 0, "daaaaaaa-1111-4111-8111-222222222222", clientGone); err != nil {
+	if err := runServing(t, 0, "daaaaaaa-1111-4111-8111-222222222222", "0.14.0", clientGone); err != nil {
 		t.Fatalf("shardless stream ended with error: %v", err)
 	}
 }
@@ -75,14 +92,18 @@ func shrinkShardTTL(t *testing.T) (restore func()) {
 // If clientGone is non-nil, the fake client hangs up when it closes;
 // otherwise the stream only ends server-side. A watchdog fails the
 // test if StartServing never returns.
-func runServing(t *testing.T, assignedShard int, cgID string, clientGone chan struct{}) error {
+func runServing(t *testing.T, assignedShard int, cgID string, clientVersion string, clientGone chan struct{}) error {
 	t.Helper()
 	s := NewHubServer(&shardFakeBE{}, "stun.test:3478", "", nil, assignedShard)
-	ctx, cancel := context.WithCancel(metadata.NewIncomingContext(context.Background(), metadata.Pairs(
+	md := metadata.Pairs(
 		"x-connectivity-group-id", cgID,
 		"x-node-number", "1",
 		"x-auth-token", "token",
-	)))
+	)
+	if clientVersion != "" {
+		md.Set("wispers-client-version", clientVersion)
+	}
+	ctx, cancel := context.WithCancel(metadata.NewIncomingContext(context.Background(), md))
 	defer cancel()
 	if clientGone != nil {
 		go func() {

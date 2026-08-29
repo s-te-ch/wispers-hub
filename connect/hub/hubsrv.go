@@ -481,12 +481,20 @@ func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 		return err
 	}
 	defer c.Disconnect()
-	// A stream for the other shard reaches this hub only while the
-	// frontends are failing over; shed it after a TTL so it re-homes.
+
+	// Connection shedding for clients >= v0.14.0.
+	//
+	// A stream for the other shard reaches this hub only while the frontends
+	// are failing over connections, but these connections don't fail
+	// back on their own. We shed those streams after a TTL so they re-home.
+	// This is only safe to do with Wispers Connect v0.14.0 and up, who detect
+	// this correctly.
 	var shed *atomic.Bool
 	stopTTL := func() {}
-	if s.assignedShard != 0 && sharding.GetShard(cgID) != s.assignedShard {
-		stopTTL, shed = sharding.ShedAfterTTL(cgID, nodeNum, c.Close)
+	if s.assignedShard != 0 && clientIsShedSafe(stream.Context()) {
+		if sharding.GetShard(cgID) != s.assignedShard {
+			stopTTL, shed = sharding.ShedAfterTTL(cgID, nodeNum, c.Close)
+		}
 	}
 	defer stopTTL()
 	c.Run()
@@ -511,6 +519,17 @@ func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 		)
 	}
 	return nil
+}
+
+// minShedClientVersion is the first client release that sends CheckIns
+// on the serving stream, which is what makes a server-initiated close
+// observable through the Caddy frontends.
+var minShedClientVersion = mustParseVersion("0.14.0")
+
+// clientIsShedSafe is true if the calling client deals well with load shedding.
+func clientIsShedSafe(ctx context.Context) bool {
+	v, err := extractClientVersion(ctx)
+	return err == nil && !versionLess(v, minShedClientVersion)
 }
 
 // logActivity sends a fire-and-forget activity log event to the backend.

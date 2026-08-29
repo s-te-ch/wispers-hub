@@ -204,6 +204,11 @@ func (g *connectivityGroup) routeRequest(req *hubpb.ServingRequest) *FutureRespo
 }
 
 func (g *connectivityGroup) processResponse(resp *hubpb.ServingResponse) {
+	if isCheckInMsg(resp) {
+		// CheckIn messages are a special case. They're responses to the
+		// Welcome message from the hub, not to a message from a peer node.
+		return
+	}
 	reqID := resp.GetRequestId()
 	g.mutex.Lock()
 	defer g.mutex.Unlock()
@@ -213,6 +218,15 @@ func (g *connectivityGroup) processResponse(resp *hubpb.ServingResponse) {
 		f.resolve(resp)
 	} else {
 		log.Printf("Received response for unknown/expired request ID %d", reqID)
+	}
+}
+
+func isCheckInMsg(resp *hubpb.ServingResponse) bool {
+	switch resp.GetKind().(type) {
+	case *hubpb.ServingResponse_CheckIn:
+		return true
+	default:
+		return false
 	}
 }
 
