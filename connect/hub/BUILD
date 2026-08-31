@@ -15,6 +15,7 @@ go_binary(
     ],
     deps = [
         ":hubsrv",
+        ":servertime",
         ":standalone",
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
@@ -36,6 +37,7 @@ go_test(
     ],
     deps = [
         ":hubsrv",
+        ":servertime",
         ":standalone",
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
@@ -152,6 +154,30 @@ go_test(
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
+    ],
+)
+
+go_library(
+    name = "servertime",
+    srcs = ["servertime.go"],
+    importpath = "connect/hub/servertime",
+    deps = [
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//metadata",
+    ],
+)
+
+go_test(
+    name = "servertime_test",
+    srcs = ["servertime_test.go"],
+    embed = [":servertime"],
+    deps = [
+        "@org_golang_google_grpc//:grpc",
+        "@org_golang_google_grpc//credentials/insecure",
+        "@org_golang_google_grpc//health",
+        "@org_golang_google_grpc//health/grpc_health_v1",
+        "@org_golang_google_grpc//metadata",
+        "@org_golang_google_grpc//test/bufconn",
     ],
 )
 

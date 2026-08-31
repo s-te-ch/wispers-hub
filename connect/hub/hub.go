@@ -15,6 +15,7 @@ import (
 
 	"connect/client/proto/hubpb"
 	"connect/hub/hubsrv"
+	"connect/hub/servertime"
 	"connect/hub/standalone"
 	"connect/proto/bepb"
 
@@ -209,11 +210,11 @@ func serveHub(hubServer *hubsrv.HubServer) error {
 // primary registration already claims the legacy name.
 func newHubGRPCServer(hubServer *hubsrv.HubServer) *grpc.Server {
 
-	opts := append(
-		// Metrics first so version-rejected calls are counted too.
-		hubsrv.MetricsInterceptors(),
-		hubsrv.VersionInterceptors()...,
-	)
+	// Server time outermost, to capture the full server-side latency.
+	opts := servertime.Interceptors()
+	// Metrics before the version gate so version-rejected calls are counted too.
+	opts = append(opts, hubsrv.MetricsInterceptors()...)
+	opts = append(opts, hubsrv.VersionInterceptors()...)
 	grpcServer := grpc.NewServer(opts...)
 	hubpb.RegisterHubServer(grpcServer, hubServer)
 	// Standard health service, for probes.
