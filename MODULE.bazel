@@ -7,7 +7,7 @@
 
 module(
     name = "wispers-hub",
-    version = "0.4.0",
+    version = "0.5.0",
 )
 
 ## Go SDK and module management ################################################
@@ -25,6 +25,7 @@ use_repo(
     "com_github_gin_gonic_gin",
     "com_github_golang_jwt_jwt_v5",
     "com_github_google_uuid",
+    "com_github_prometheus_client_golang",
     "org_golang_google_grpc",
     "org_golang_google_protobuf",
     "org_golang_x_time",
@@ -75,7 +76,7 @@ http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "ht
 http_archive(
     name = "connect_client",
     build_file = "//third_party:client.BUILD",
-    sha256 = "8c55466638c6f920bda45e7c8d7ca63a225e265a0d72235ae62e8c0d833e36d3",
-    strip_prefix = "wispers-client-0.13.0",
-    urls = ["https://github.com/s-te-ch/wispers-client/archive/refs/tags/v0.13.0.tar.gz"],
+    sha256 = "223d52a42c130660860eabe052e5ac21f5af5195fd94925f14f38e104f46371d",
+    strip_prefix = "wispers-client-0.14.1",
+    urls = ["https://github.com/s-te-ch/wispers-client/archive/refs/tags/v0.14.1.tar.gz"],
 )
