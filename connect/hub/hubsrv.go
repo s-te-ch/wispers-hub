@@ -457,6 +457,10 @@ var failedOverConnsShed = promauto.NewCounter(prometheus.CounterOpts{
 })
 
 func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
+	// Record handler start time.
+	t1 := time.Now()
+
+	// Authenticate
 	cgID, nodeNum, err := s.authenticateAndRateLimit(stream.Context())
 	if err != nil {
 		return err
@@ -497,11 +501,26 @@ func (s *HubServer) StartServing(stream hubpb.Hub_StartServingServer) error {
 		}
 	}
 	defer stopTTL()
+
+	// Send Welcome to unblock client's stream setup.
+	err = stream.Send(&hubpb.ServingRequest{
+		Kind: &hubpb.ServingRequest_Welcome{Welcome: &hubpb.Welcome{
+			ServerSideInitLatencyUsec: time.Since(t1).Microseconds(),
+		}},
+	})
+	if err != nil {
+		return err
+	}
+
+	// Run the messaging loop.
 	c.Run()
 
-	s.logActivity(context.Background(), cgID, nodeNum, "disconnect", true, &bepb.EventDetails{
-		Kind: &bepb.EventDetails_Disconnect{Disconnect: &bepb.DisconnectEvent{}},
-	})
+	s.logActivity(
+		context.Background(), cgID, nodeNum, "disconnect", true,
+		&bepb.EventDetails{
+			Kind: &bepb.EventDetails_Disconnect{Disconnect: &bepb.DisconnectEvent{}},
+		},
+	)
 	// Tell the evicted client why its stream ended, so a duplicate instance shows
 	// up clearly in its own logs instead of looking like a random disconnect.
 	if c.Evicted() {

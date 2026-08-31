@@ -43,10 +43,6 @@ func newConnector(
 }
 
 func (c *Connector) Run() {
-	// Send Welcome to unblock client's stream setup
-	c.stream.Send(&hubpb.ServingRequest{
-		Kind: &hubpb.ServingRequest_Welcome{Welcome: &hubpb.Welcome{}},
-	})
 	go c.recvLoop()
 	go c.sendLoop()
 	<-c.ctx.Done()

@@ -17,7 +17,7 @@ import (
 )
 
 // Key is the metadata key. The value is processing time in microseconds.
-const Key = "wispers-server-time-us"
+const Key = "wispers-server-time-usec"
 
 // Interceptors returns server options, to be composed with others when building
 // the gRPC server.
