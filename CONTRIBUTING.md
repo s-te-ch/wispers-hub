@@ -1,20 +1,21 @@
 # Contributing
 
-Thanks for your interest in contributing!
-
-## Contributions are paused for now
-
-We are still finalizing our Contributor License Agreement, and until that is
-done we unfortunately cannot accept code contributions. This section will be
-replaced with the real process once the CLA is ready.
-
-**Issues and bug reports are very welcome** in the meantime.
+Thanks for considering a contribution!
 
 ## How this repo works
 
-This repo is a read-only export of the Wispers monorepo. Once contributions
-open up, accepted PRs are imported into the monorepo and land back in this
-repo through the export (you keep authorship).
+This repo is a read-only export of the Wispers monorepo. Issues and pull
+requests are very welcome here. Accepted PRs are imported into the monorepo
+and land back in this repo through the export (you keep authorship).
+
+## License and CLA
+
+The code is licensed under the [AGPL-3.0](LICENSE). Contributions require
+signing the [Contributor License Agreement](CLA.md). The CLA bot will prompt
+you on your first pull request, and signing is a one-time PR comment.
+The short reason for the CLA: this code also powers the hosted Wispers
+Connect service, and the CLA lets your contribution flow into both; your code
+always remains available under the AGPL.
 
 ## Building and testing
 

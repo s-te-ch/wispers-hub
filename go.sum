@@ -113,6 +113,8 @@ github.com/quic-go/quic-go v0.58.0 h1:ggY2pvZaVdB9EyojxL1p+5mptkuHyX5MOSv4dgWF4U
 github.com/quic-go/quic-go v0.58.0/go.mod h1:upnsH4Ju1YkqpLXC305eW3yDZ4NfnNbmQRCMWS58IKU=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec h1:W09IVJc94icq4NjY3clb7Lk8O1qJ8BdBEF8z0ibU0rE=
 github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec/go.mod h1:qqbHyh8v60DhA7CoWK5oRCqLrMHRGoxYCSS9EjAz6Eo=
+github.com/s-te-ch/wispers-client/wrappers/go v0.15.0 h1:TnIBZcqVSjBYWAsZekPNUiBMD6W5kbOi3m0Wfq7IaXc=
+github.com/s-te-ch/wispers-client/wrappers/go v0.15.0/go.mod h1:kso40FIYDRzayTAiLQVLbg89bt8ZJuynlxuuJYJPBvo=
 github.com/sethvargo/go-retry v0.3.0 h1:EEt31A35QhrcRZtrYFDTBg91cqZVnFL2navjDrah2SE=
 github.com/sethvargo/go-retry v0.3.0/go.mod h1:mNX17F0C/HguQMyMyJxcnU471gOZGxCLyYaFyAZraas=
 github.com/stretchr/objx v0.1.0/go.mod h1:HFkY916IF+rwdDfMAkV7OtwuqBVzrE8GR6GFx+wExME=

@@ -6,8 +6,10 @@ require (
 	github.com/bazelbuild/rules_go v0.51.0
 	github.com/pion/stun/v3 v3.1.6
 	github.com/pion/turn/v5 v5.0.12
+	github.com/s-te-ch/wispers-client/wrappers/go v0.15.0
 	github.com/vishvananda/netlink v1.3.1
 	google.golang.org/grpc v1.72.1
+	s-te.ch/go v0.1.0
 )
 
 require (
@@ -61,7 +63,6 @@ require (
 	golang.org/x/sync v0.19.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
 	modernc.org/memory v1.10.0 // indirect
-	s-te.ch/go v0.1.0 // indirect
 )
 
 require (

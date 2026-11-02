@@ -63,8 +63,8 @@ bazel run //connect/hub -- --stun-server <host:port>
 
 ## Development
 
-This repo is a read-only export of the Wispers monorepo; issues and bug
-reports are welcome here. Code contributions are not accepted yet — see
+This repo is a read-only export of the Wispers monorepo; issues and pull
+requests are welcome here, but commits land via the monorepo. See
 [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Version compatibility
@@ -76,4 +76,6 @@ minimum compatible version, if applicable.
 
 ## License
 
-[AGPL-3.0-only](LICENSE).
+[AGPL-3.0-only](LICENSE). Contributions require signing the [CLA](CLA.md), which
+keeps the code usable in the hosted Wispers Connect service as well; see
+CONTRIBUTING.md for the how and why.

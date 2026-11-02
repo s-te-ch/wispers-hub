@@ -12,11 +12,11 @@ module(
 
 ## Go SDK and module management ################################################
 
-bazel_dep(name = "rules_go", version = "0.51.0")
-bazel_dep(name = "gazelle", version = "0.39.0")
+bazel_dep(name = "rules_go", version = "0.63.0")
+bazel_dep(name = "gazelle", version = "0.53.0")
 
 go_sdk = use_extension("@rules_go//go:extensions.bzl", "go_sdk")
-go_sdk.download(version = "1.24.3")
+go_sdk.download(version = "1.27.1")
 
 go_deps = use_extension("@gazelle//:extensions.bzl", "go_deps")
 go_deps.from_file(go_mod = "//:go.mod")
@@ -36,7 +36,7 @@ use_repo(
 
 bazel_dep(name = "rules_proto_grpc_go", version = "5.0.1")
 bazel_dep(name = "toolchains_protoc", version = "0.4.1")
-bazel_dep(name = "bazel_skylib", version = "1.5.0")
+bazel_dep(name = "bazel_skylib", version = "1.9.0")
 
 protoc = use_extension("@toolchains_protoc//protoc:extensions.bzl", "protoc")
 protoc.toolchain(
@@ -70,13 +70,14 @@ use_repo(
 )
 
 ## The Wispers Connect client library ##########################################
+#
+# A Bazel module of its own; the hub only needs its .proto files. Not on the
+# Bazel Central Registry, hence the override. Pinned to the first commit that
+# carries MODULE.bazel; switch to a release tag once one exists.
 
-http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
-
-http_archive(
-    name = "connect_client",
-    build_file = "//third_party:client.BUILD",
-    sha256 = "223d52a42c130660860eabe052e5ac21f5af5195fd94925f14f38e104f46371d",
-    strip_prefix = "wispers-client-0.14.1",
-    urls = ["https://github.com/s-te-ch/wispers-client/archive/refs/tags/v0.14.1.tar.gz"],
+bazel_dep(name = "wispers_connect", version = "0.15.0")
+git_override(
+    module_name = "wispers_connect",
+    commit = "bddec4997fe080e5be5adc6b89aa6a41869d1fa6",
+    remote = "https://github.com/s-te-ch/wispers-client.git",
 )

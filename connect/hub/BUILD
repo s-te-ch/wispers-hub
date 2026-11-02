@@ -19,7 +19,7 @@ go_binary(
         ":standalone",
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
-        "@connect_client//:hub_go_grpc",
+        "//proto/connect:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//credentials/insecure",
         "@org_golang_google_grpc//health",
@@ -41,7 +41,7 @@ go_test(
         ":standalone",
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus/promhttp",
-        "@connect_client//:hub_go_grpc",
+        "//proto/connect:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//credentials/insecure",
@@ -61,7 +61,7 @@ go_test(
     deps = [
         "//connect/shared:turncreds",
         "//proto/connect:be_go_grpc",
-        "@connect_client//:hub_go_grpc",
+        "//proto/connect:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//metadata",
     ],
@@ -102,7 +102,7 @@ go_library(
         "@org_golang_google_protobuf//proto",
         "@org_golang_x_time//rate",
         "@org_modernc_sqlite//:sqlite",
-        "@connect_client//:roster_go_proto",
+        "//proto/connect:roster_go_proto",
     ],
 )
 
@@ -112,7 +112,7 @@ go_test(
     deps = [
         ":standalone",
         "//proto/connect:be_go_grpc",
-        "@connect_client//:roster_go_proto",
+        "//proto/connect:roster_go_proto",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
         "@org_golang_google_protobuf//proto",
@@ -134,8 +134,8 @@ go_library(
         "//proto/connect:be_go_grpc",
         "@com_github_prometheus_client_golang//prometheus",
         "@com_github_prometheus_client_golang//prometheus/promauto",
-        "@connect_client//:hub_go_grpc",
-        "@connect_client//:roster_go_proto",
+        "//proto/connect:hub_go_grpc",
+        "//proto/connect:roster_go_proto",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//metadata",
@@ -188,7 +188,7 @@ go_test(
     deps = [
         ":sharding",
         "//proto/connect:be_go_grpc",
-        "@connect_client//:hub_go_grpc",
+        "//proto/connect:hub_go_grpc",
         "@org_golang_google_grpc//:grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//metadata",
@@ -213,7 +213,7 @@ go_library(
     srcs = ["routing.go"],
     importpath = "connect/hub/routing",
     deps = [
-        "@connect_client//:hub_go_grpc",
+        "//proto/connect:hub_go_grpc",
         "@org_golang_google_grpc//codes",
         "@org_golang_google_grpc//status",
     ],
